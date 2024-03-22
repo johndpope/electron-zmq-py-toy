@@ -4,8 +4,7 @@
   "description": "Client(Electron) side for electron-zmq-py-toy",
   "main": "index.js",
   "scripts": {
-    "start": "electron .",
-    "prebuild": "cd ../server && build.bat",
+    "start": "electron . --in-process-gpu",
     "build": "electron-builder"
   },
   "build": {
@@ -18,7 +17,9 @@
     "directories": {
       "output": "../dist"
     },
-    "extraResources": ["py"]
+    "extraResources": [
+      "py"
+    ]
   },
   "repository": "https://github.com/sjquant/electron-zmq-py-toy",
   "author": "sjquant",
@@ -30,6 +31,7 @@
   "devDependencies": {
     "electron": "^9.0.0",
     "electron-builder": "^22.9.1",
+    "electron-react-devtools": "^0.5.3",
     "electron-reloader": "^1.0.1"
   }
 }

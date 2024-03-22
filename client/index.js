@@ -4,19 +4,19 @@ try {
 } catch (_) {}
 
 function createWindow() {
+
   const win = new BrowserWindow({
     minWidth: 800,
     minHeight: 600,
-    maxWidth: 800,
-    maxHeight: 600,
-    title: "Simple Calculator",
-    useContentSize: true,
+    title: "LiveNet",
+    useContentSize: false,
     webPreferences: {
       nodeIntegration: true,
     },
   });
   win.setMenuBarVisibility(false);
   win.loadFile("index.html");
+  win.webContents.openDevTools()
 }
 
 app.on("ready", createWindow);

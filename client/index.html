@@ -1,39 +1,156 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Simple Calculator</title>
-    <link rel="stylesheet" href="style.css" />
-  </head>
-  <body>
-    <h1 class="title">Simple Calculator</h1>
-    <div class="calc-container">
-      <section class="input">
-        <div class="input-container">
-          <h3>Number 1</h3>
-          <input id="inputOne" type="number" />
-        </div>
-        <div class="input-container">
-          <h3>Number 2</h3>
-          <input id="inputTwo" type="number" />
-        </div>
-      </section>
-      <div class="btn-container">
-        <button id="add-btn" class="calc-btn">Add</button>
-        <button id="sub-btn" class="calc-btn">Subtract</button>
-        <button id="mult-btn" class="calc-btn">Multiply</button>
-        <button id="div-btn" class="calc-btn">Divide</button>
-      </div>
-      <section class="output">
-        <div class="output-container">
-          <h3>Result</h3>
-          <input id="result" />
-        </div>
-      </section>
-    </div>
-    <script>
-      require("./browser.js");
-    </script>
-  </body>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/styles/default.min.css">
+<style>
+  mark {
+    background-color: yellow;
+    font-weight: bold;
+  }
+  #time-machine {
+    perspective: 1000px;
+    perspective-origin: 50% 200px; /* Adjust as needed */
+    width: 80%;
+    margin: auto;
+  }
+
+  #svg-stack {
+    position: relative;
+    transform-style: preserve-3d; /* Allow 3D space for children */
+  }
+
+  .svg-card {
+    position: absolute;
+    transform-style: preserve-3d;
+    transform: translateZ(-var(--depth)) rotateX(-30deg) rotateY(45deg);
+    transition: transform 0.5s;
+    z-index: var(--depth-index);
+  }
+
+  /* Apply your own offsets for each card */
+  .svg-card:nth-child(1) { transform: translate(30px, 20px) translateZ(var(--depth)); }
+  .svg-card:nth-child(2) { transform: translate(60px, 40px) translateZ(var(--depth)); }
+</style>
+<script>
+const zmq = require("zeromq");
+
+async function connectSocket() {
+  const sock = new zmq.Subscriber();
+  await sock.connect("tcp://127.0.0.1:5555");
+  await sock.subscribe("");
+  return sock;
+}
+
+function writeModel(msg) {
+  const resultElement = document.querySelector("#result");
+  resultElement.innerText += msg + "\n";
+  hljs.highlightBlock(resultElement);
+}
+
+function highlightMessage(msg) {
+  const resultElement = document.querySelector("#result");
+  
+  // Parse the module identifier from the message
+  const moduleIdentifier = msg.match(/Forward pass through: (.*)/)[1];
+  
+  // Find the corresponding line in the code block
+  const lines = resultElement.innerText.split("\n");
+  const lineIndex = lines.findIndex(line => line.includes(moduleIdentifier));
+  
+  if (lineIndex !== -1) {
+    // Apply highlighting to the corresponding line
+    lines[lineIndex] = `<mark>${lines[lineIndex]}</mark>`;
+    resultElement.innerHTML = lines.join("\n");
+  }
+  
+  hljs.highlightBlock(resultElement);
+}
+
+
+async function receiveMessages() {
+  const sock = await connectSocket();
+  for await (const [msg] of sock) {
+  
+
+    try {
+      const message = msg.toString();
+      const data = JSON.parse(message);
+
+      if (data.msg) {
+        // Handle messages with the "msg" property
+        // highlightMessage(data.msg);
+        console.log("ok")
+        const svgContent = `
+              <svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
+              <rect x="50" y="50" width="100" height="50" fill="lightblue" stroke="black" />
+              <text x="60" y="75.0" font-family="monospace" font-size="12">Linear</text>
+              <text x="60" y="90" font-family="monospace" font-size="10">23423</text>
+              <rect x="50" y="110" width="100" height="50" fill="lightgreen" stroke="black" />
+              <text x="60" y="135.0" font-family="monospace" font-size="12">ReLU</text>
+              <rect x="50" y="170" width="100" height="50" fill="lightblue" stroke="black" />
+              <text x="60" y="195.0" font-family="monospace" font-size="12">Linear</text>
+              <text x="60" y="210" font-family="monospace" font-size="10">20→30</text>
+              <rect x="50" y="230" width="100" height="50" fill="lightgreen" stroke="black" />
+              <text x="60" y="255.0" font-family="monospace" font-size="12">ReLU</text>
+              <rect x="50" y="290" width="100" height="50" fill="lightblue" stroke="black" />
+              <text x="60" y="315.0" font-family="monospace" font-size="12">Linear</text>
+              <text x="60" y="330" font-family="monospace" font-size="10">30→5</text>
+          </svg>
+
+              `
+
+       addSVG(svgContent);
+      } else if (data.model) {
+        // Handle messages with the "model" property
+        writeModel(data.model);
+        
+
+      } else {
+        // Handle other cases or unknown message formats
+        console.log("Unknown message format:", data);
+      }
+    } catch (error) {
+      console.error("Error parsing JSON:", error);
+    }
+  }
+}
+window.addEventListener("beforeunload", () => {
+  const sock = getSock();
+  sock.close();
+});
+
+receiveMessages();
+
+let currentDepth = 0;
+const depthStep = 100; // Distance between each SVG in the "z" direction
+const svgStack = document.getElementById('svg-stack');
+
+function addSVG(svgContent) {
+    let newSVG = document.createElement('div');
+    newSVG.innerHTML = svgContent;
+    newSVG.classList.add('svg-card');
+    newSVG.style.setProperty('--depth', `${currentDepth}px`);
+    svgStack.appendChild(newSVG);
+    currentDepth += depthStep;
+}
+
+function navigate(direction) {
+    const svgCards = document.querySelectorAll('.svg-card');
+    currentDepth += direction * depthStep;
+    svgCards.forEach((card, index) => {
+        card.style.transform = `translateZ(${currentDepth - index * depthStep}px) rotateX(-30deg) rotateY(45deg)`;
+    });
+}
+</script>
+<body>
+  <div id="time-machine">
+    <button onclick="navigate(-1)">Previous</button>
+    <button onclick="navigate(1)">Next</button>
+    <div class="svg-stack">
+
+    
+  </div>
+
+</body>
 </html>
